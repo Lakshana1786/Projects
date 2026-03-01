@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PN Junction Depletion Width Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .simulation-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .pn-junction {
+            width: 300px;
+            height: 50px;
+            border: 2px solid black;
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+        .p-region {
+            width: 50%;
+            background-color: lightcoral;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s;
+        }
+        .n-region {
+            width: 50%;
+            background-color: lightblue;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: width 0.3s;
+        }
+        .depletion-region {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.6);
+            border-left: 1px dashed black;
+            border-right: 1px dashed black;
+            left: 25%;
+            right: 25%;
+            transition: left 0.3s, right 0.3s;
+        }
+        #bias-slider {
+            margin-top: 20px;
+            width: 300px;
+        }
+        .output {
+            margin-top: 10px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <h1>PN Junction Depletion Width Simulation</h1>
+    <div class="simulation-container">
+        <div class="pn-junction">
+            <div class="p-region">P</div>
+            <div id="depletion-region" class="depletion-region"></div>
+            <div class="n-region">N</div>
+        </div>
+        <input type="range" id="bias-slider" min="0" max="100" value="50">
+        <div class="output">Applied Bias: <span id="bias-value">50</span>%</div>
+        <div class="output">Depletion Width: <span id="depletion-width">150</span> px</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const biasSlider = document.getElementById('bias-slider');
+            const biasValueDisplay = document.getElementById('bias-value');
+            const depletionWidthDisplay = document.getElementById('depletion-width');
+            const depletionRegion = document.getElementById('depletion-region');
+
+            function updateDepletionWidth() {
+                const biasValue = biasSlider.value;
+                biasValueDisplay.textContent = biasValue;
+
+                // Calculate depletion width dynamically (range between 50 and 250 pixels)
+                const width = 150 - (biasValue * 1);
+                depletionWidthDisplay.textContent = width;
+
+                // Adjust left and right based on depletion width
+                const depletionEdge = (300 - width) / 2;
+                depletionRegion.style.left = `${depletionEdge}px`;
+                depletionRegion.style.right = `${depletionEdge}px`;
+            }
+
+            biasSlider.addEventListener('input', updateDepletionWidth);
+            updateDepletionWidth();
+        });
+    </script>
+</body>
+</html>

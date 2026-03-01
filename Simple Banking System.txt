@@ -1,0 +1,115 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.*;
+public class ThreadedBankingSystem {
+ private double balance;
+ private final String fileName = "transactions.txt";
+ private final ExecutorService executor = Executors.newSingleThreadExecutor(); // 1 background thread
+ public ThreadedBankingSystem() {
+ balance = 0.0;
+ }
+ // Deposit (now runs logging in background)
+ public void deposit(double amount) throws Exception {
+ if (amount <= 0) throw new Exception("Deposit must be positive!");
+ synchronized (this) { // Thread-safe balance update
+ balance += amount;
+ }
+
+ executor.execute(() -> logTransaction("DEPOSIT", amount)); // Async logging
+ }
+ // Withdraw (background logging)
+ public void withdraw(double amount) throws Exception {
+ if (amount <= 0) throw new Exception("Withdrawal must be positive!");
+ synchronized (this) {
+ if (amount > balance) throw new Exception("Insufficient funds!");
+ balance -= amount;
+ }
+ executor.execute(() -> logTransaction("WITHDRAW", amount)); // Async logging
+ }
+ // Async file writing (won't freeze GUI)
+ private void logTransaction(String type, double amount) {
+ try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true))) {
+ String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
+ writer.write(time + " | " + type + " | $" + amount + " | Balance: $" + balance + "\n");
+ } catch (IOException e) {
+ SwingUtilities.invokeLater(() -> // Update GUI from background thread
+ JOptionPane.showMessageDialog(null, "Failed to log transaction!"));
+ }
+ }
+ // Read history (also async to prevent GUI freeze)
+ public void loadHistoryAsync(JTextArea outputArea) {
+ outputArea.setText("Loading history...");
+ executor.execute(() -> {
+ StringBuilder history = new StringBuilder();
+ try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
+ String line;
+ 
+ while ((line = reader.readLine()) != null) {
+ history.append(line).append("\n");
+ }
+ } catch (IOException e) {
+ history.append("No transactions yet.");
+ }
+ SwingUtilities.invokeLater(() -> outputArea.setText(history.toString()));
+ });
+ }
+ public synchronized double getBalance() {
+ return balance;
+ }
+ public static void main(String[] args) {
+ ThreadedBankingSystem bank = new ThreadedBankingSystem();
+
+ // GUI Setup (same as before)
+ JFrame frame = new JFrame("Threaded Banking System");
+ frame.setSize(500, 400);
+ frame.setLayout(new FlowLayout());
+ JTextField amountInput = new JTextField(10);
+ JTextArea outputArea = new JTextArea(10, 30);
+ outputArea.setEditable(false);
+ JButton depositBtn = new JButton("Deposit");
+ JButton withdrawBtn = new JButton("Withdraw");
+ JButton historyBtn = new JButton("Show History");
+ // Button Actions (now non-blocking)
+ 
+ depositBtn.addActionListener(e -> {
+ try {
+ double amount = Double.parseDouble(amountInput.getText());
+ bank.deposit(amount);
+ outputArea.setText("Deposited: $" + amount + "\nNew Balance: $" + bank.getBalance());
+ } catch (Exception ex) {
+ JOptionPane.showMessageDialog(frame, "Error: " + ex.getMessage());
+ }
+ });
+ withdrawBtn.addActionListener(e -> {
+ try {
+ double amount = Double.parseDouble(amountInput.getText());
+ bank.withdraw(amount);
+ outputArea.setText("Withdrew: $" + amount + "\nNew Balance: $" + bank.getBalance());
+ } catch (Exception ex) {
+ JOptionPane.showMessageDialog(frame, "Error: " + ex.getMessage());
+ }
+ });
+ historyBtn.addActionListener(e -> {
+ bank.loadHistoryAsync(outputArea); // Async history load
+ });
+ // Add components and display
+ frame.add(new JLabel("Amount:"));
+ frame.add(amountInput);
+ frame.add(depositBtn);
+ frame.add(withdrawBtn);
+ frame.add(historyBtn);
+ frame.add(new JScrollPane(outputArea));
+ 
+ frame.setVisible(true);
+ // Shutdown thread when window closes
+ frame.addWindowListener(new WindowAdapter() {
+ @Override
+ public void windowClosing(WindowEvent e) {
+ bank.executor.shutdown();
+ }
+ });
+ } 
